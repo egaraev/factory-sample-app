@@ -11,12 +11,13 @@ additional endpoints are deferred to follow-up epics.
 
 ## Setup
 
-Create a virtual environment and install dependencies:
+Create a virtual environment and install the development dependencies (runtime
+plus test dependencies):
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate   # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
+pip install -r requirements-dev.txt
 ```
 
 ## Run
