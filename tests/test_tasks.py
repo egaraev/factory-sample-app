@@ -1,5 +1,6 @@
 """API-level tests for the task CRUD endpoints."""
 
+import json
 from pathlib import Path
 
 import pytest
@@ -137,3 +138,48 @@ def test_tasks_are_persisted_to_json_file_and_visible_after_restart(client, tmp_
 
         assert response.status_code == 200
         assert response.json() == task
+
+
+def test_task_data_survives_simulated_process_restart(client, tmp_path: Path):
+    """KAN-15: Task data must not live only in memory; it must survive a restart.
+
+    Creates several tasks through the API, simulates a process restart by
+    discarding all in-process state (a fresh ``TestClient`` pointed at the
+    same storage file), and asserts that every task — including the
+    auto-increment id counter — is still present and correct.
+    """
+    first = _create_task(client, "Buy oat milk")
+    second = _create_task(client, "Walk the dog", done=True)
+
+    data_file = tmp_path / "tasks.json"
+    assert data_file.exists()
+
+    # Simulate a process restart: create a brand-new TestClient.  Because
+    # the storage module reads from disk on every call (no in-memory cache),
+    # the fresh client sees exactly what was written to the JSON file —
+    # nothing is carried over from the previous "process".
+    with TestClient(app) as restarted_client:
+        # All previously created tasks are still present, in order.
+        list_response = restarted_client.get("/tasks")
+        assert list_response.status_code == 200
+        assert list_response.json() == [first, second]
+
+        # Each task is retrievable by id with all fields intact.
+        for expected in (first, second):
+            detail_response = restarted_client.get(f"/tasks/{expected['id']}")
+            assert detail_response.status_code == 200
+            assert detail_response.json() == expected
+
+        # The next-id counter persisted: a new task gets the sequential id
+        # rather than colliding with the pre-restart tasks.
+        third = _create_task(restarted_client, "Created after restart")
+        assert third["id"] == max(first["id"], second["id"]) + 1
+
+    # The on-disk JSON file is the authoritative source of truth: it contains
+    # every task (including the one created post-restart) and the updated
+    # next-id counter.
+    with open(data_file, "r", encoding="utf-8") as handle:
+        stored = json.load(handle)
+
+    assert [t["id"] for t in stored["tasks"]] == [first["id"], second["id"], third["id"]]
+    assert stored["next_id"] == third["id"] + 1
