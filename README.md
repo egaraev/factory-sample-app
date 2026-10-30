@@ -55,6 +55,13 @@ The service listens on port **8000** (fixed and documented here). Map it to the
 host with `-p 8000:8000`:
 
 ```bash
+docker run -p 8000:8000 factory-sample-app
+```
+
+If you want Docker to remove the container automatically when it stops, add
+`--rm`:
+
+```bash
 docker run --rm -p 8000:8000 factory-sample-app
 ```
 
@@ -79,21 +86,51 @@ and can be redirected in either of two ways:
 - Mount a **named volume** for simple, durable storage:
 
   ```bash
-  docker run --rm -p 8000:8000 -v factory-data:/data factory-sample-app
+  docker run -p 8000:8000 -v factory-data:/data factory-sample-app
   ```
 
-- Mount a **host directory** to inspect the JSON file directly:
+- Mount a **host directory** at `/data` and explicitly keep the default
+  `TASKS_DATA_FILE` value. Create the directory first so it exists on the host
+  and can be made writable by the container user (UID `1000`) if needed:
 
   ```bash
-  docker run --rm -p 8000:8000 -v "$PWD/data":/data factory-sample-app
+  mkdir -p data
+  docker run -p 8000:8000 \
+    -e TASKS_DATA_FILE=/data/tasks.json \
+    -v "$(pwd)/data":/data \
+    factory-sample-app
   ```
 
 - Or point storage at an entirely different path with `-e`:
 
   ```bash
-  docker run --rm -p 8000:8000 -e TASKS_DATA_FILE=/tmp/tasks.json \
-    -v "$PWD/tmp":/tmp factory-sample-app
+  docker run -p 8000:8000 \
+    -e TASKS_DATA_FILE=/tmp/tasks.json \
+    -v "$(pwd)/tmp":/tmp \
+    factory-sample-app
   ```
+
+### Pull and run the published image from GHCR
+
+Once the CI pipeline has published an image for `main`, it is available on
+GitHub Container Registry (GHCR). The CI job tags each build with both
+`latest` and the full git commit SHA, so you can run the newest published
+image or pin a specific build.
+
+For this repository, replace `egaraev` with the GitHub account or organization
+that owns the repository if it is mirrored somewhere else:
+
+```bash
+docker pull ghcr.io/egaraev/factory-sample-app:latest
+docker run -p 8000:8000 ghcr.io/egaraev/factory-sample-app:latest
+```
+
+To pin a specific published build, use its git commit SHA tag:
+
+```bash
+docker pull ghcr.io/egaraev/factory-sample-app:<git-commit-sha>
+docker run -p 8000:8000 ghcr.io/egaraev/factory-sample-app:<git-commit-sha>
+```
 
 ## Verify manually
 
