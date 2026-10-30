@@ -14,3 +14,7 @@ k8s/secrets/*
 .venv
 *.pem
 *.key
+
+__pycache__/
+*.pyc
+.pytest_cache/
