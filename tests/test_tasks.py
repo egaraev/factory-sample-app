@@ -30,6 +30,48 @@ def _create_task(client, title, done=False):
     return response.json()
 
 
+def test_startup_creates_database_before_first_request(tmp_path: Path):
+    """KAN-26: a fresh DB_PATH must be fully set up before any request is served."""
+    db_file = tmp_path / "fresh" / "tasks.db"
+    storage.set_db_path(db_file)
+
+    with TestClient(app) as test_client:
+        # The startup hook (not the first request) must have created the file,
+        # its parent directory, and the tasks table.
+        assert db_file.parent.is_dir()
+        assert db_file.exists()
+        assert "tasks" in _tables(db_file)
+
+        # The first request hits an already-initialized database and sees an
+        # empty list — no lazy setup is visible to the caller.
+        response = test_client.get("/tasks")
+
+        assert response.status_code == 200
+        assert response.json() == []
+
+
+def test_startup_fails_fast_when_db_path_is_unusable(tmp_path: Path):
+    """KAN-26: a misconfigured DB_PATH must fail at startup, not on first write."""
+    blocker = tmp_path / "not-a-directory"
+    blocker.write_text("a regular file blocking the database path")
+    storage.set_db_path(blocker / "tasks.db")
+
+    with pytest.raises(RuntimeError, match="Could not initialize the task database"):
+        with TestClient(app) as test_client:  # pragma: no cover - startup raises
+            test_client.get("/tasks")
+
+
+def _tables(db_path: Path) -> set:
+    import sqlite3
+
+    conn = sqlite3.connect(str(db_path))
+    try:
+        rows = conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'").fetchall()
+    finally:
+        conn.close()
+    return {row[0] for row in rows}
+
+
 def test_create_task_returns_201_and_defaults_done_to_false(client):
     response = client.post("/tasks", json={"title": "Buy milk"})
 
