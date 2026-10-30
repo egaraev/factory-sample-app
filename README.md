@@ -62,7 +62,7 @@ curl -X POST http://127.0.0.1:8000/tasks \
   -d '{"title": "Buy milk"}'
 ```
 
-Expected response:
+Expected response (`201 Created`):
 
 ```json
 {"id": 1, "title": "Buy milk", "done": false}
@@ -84,7 +84,7 @@ curl -X POST http://127.0.0.1:8000/tasks \
 curl http://127.0.0.1:8000/tasks
 ```
 
-Expected response:
+Expected response (`200 OK`):
 
 ```json
 [
@@ -95,20 +95,20 @@ Expected response:
 
 ### Get one task
 
-`GET /tasks/{task_id}` returns a single task or `404` when the id does not
-exist:
+`GET /tasks/{task_id}` returns a single task or `404 Not Found` when the id
+does not exist:
 
 ```bash
 curl http://127.0.0.1:8000/tasks/1
 ```
 
-Expected response:
+Expected response (`200 OK`):
 
 ```json
 {"id": 1, "title": "Buy milk", "done": false}
 ```
 
-Not-found response:
+Not-found response (`404 Not Found`):
 
 ```json
 {"detail": "Task not found"}
@@ -117,7 +117,7 @@ Not-found response:
 ### Update a task
 
 `PUT /tasks/{task_id}` accepts any subset of `title` and `done`. Fields left
-out are unchanged. Missing tasks return `404`:
+out are unchanged. Missing tasks return `404 Not Found`:
 
 ```bash
 curl -X PUT http://127.0.0.1:8000/tasks/1 \
@@ -129,19 +129,19 @@ curl -X PUT http://127.0.0.1:8000/tasks/1 \
   -d '{"done": true}'
 ```
 
-Expected response after the first update:
+Expected response after the first update (`200 OK`):
 
 ```json
 {"id": 1, "title": "Buy oat milk", "done": false}
 ```
 
-Expected response after the second update:
+Expected response after the second update (`200 OK`):
 
 ```json
 {"id": 1, "title": "Buy oat milk", "done": true}
 ```
 
-Not-found response:
+Not-found response (`404 Not Found`):
 
 ```json
 {"detail": "Task not found"}
@@ -149,14 +149,20 @@ Not-found response:
 
 ### Delete a task
 
-`DELETE /tasks/{task_id}` deletes the task and returns `204` with no body.
-Missing tasks return `404`:
+`DELETE /tasks/{task_id}` deletes the task and returns `204 No Content` with
+no body. Missing tasks return `404 Not Found`:
 
 ```bash
 curl -X DELETE http://127.0.0.1:8000/tasks/1
 ```
 
-Not-found response:
+Success response:
+
+```text
+204 No Content
+```
+
+Not-found response (`404 Not Found`):
 
 ```json
 {"detail": "Task not found"}
