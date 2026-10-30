@@ -79,9 +79,10 @@ Interactive API docs are served at `http://localhost:8000/docs`.
 ### Persistence (task storage)
 
 Tasks are persisted in the SQLite database file named by the `DB_PATH`
-environment variable, which defaults to `/data/tasks.db` inside the container.
-That path is declared as a Docker volume (`VOLUME /data`), so persistence
-survives restarts and can be redirected in either of two ways:
+environment variable, which defaults to `/data/tasks.db` inside the container
+(`data/tasks.db` when running the service locally outside Docker). That path
+is declared as a Docker volume (`VOLUME /data`), so persistence survives
+restarts and can be redirected in either of two ways:
 
 - Mount a **named volume** for simple, durable storage:
 
@@ -149,8 +150,8 @@ Expected response:
 ## Task API
 
 Tasks are stored in `data/tasks.db` (a SQLite database) by default, so they
-persist across service restarts. The file is created automatically on the
-first write. You can override the storage location with the `DB_PATH`
+persist across service restarts. The file is created automatically when the
+service starts. You can override the storage location with the `DB_PATH`
 environment variable.
 
 ### Create a task
