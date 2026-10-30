@@ -10,12 +10,20 @@ from app.main import app
 
 
 @pytest.fixture(autouse=True)
-def isolated_db_file(tmp_path, monkeypatch):
-    """Point storage at a temporary database file and restore it after each test."""
+def isolated_storage_file(tmp_path):
+    """Point storage at a per-test temporary SQLite database file.
+
+    Every test gets its own ``tmp_path``-based ``.db`` file through
+    :func:`app.storage.set_db_path`, and the previous module-level path is
+    restored afterwards (in a ``finally``) so no shared or real database file
+    is ever touched, even if the test raises.
+    """
     original = storage.DB_PATH
     storage.set_db_path(tmp_path / "tasks.db")
-    yield
-    storage.set_db_path(original)
+    try:
+        yield
+    finally:
+        storage.set_db_path(original)
 
 
 @pytest.fixture()
