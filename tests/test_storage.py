@@ -9,16 +9,20 @@ import app.storage as storage
 
 
 @pytest.fixture(autouse=True)
-def isolated_db(tmp_path, monkeypatch):
-    """Point storage at a per-test temporary database file.
+def isolated_storage_file(tmp_path):
+    """Point storage at a per-test temporary SQLite database file.
 
-    Tests must never touch a shared/real database: every test gets its own
-    file under ``tmp_path`` and the module-level path is restored afterwards.
+    Every test gets its own ``tmp_path``-based ``.db`` file through
+    :func:`app.storage.set_db_path`, and the previous module-level path is
+    restored afterwards (in a ``finally``) so no shared or real database file
+    is ever touched, even if the test raises.
     """
     original = storage.DB_PATH
     storage.set_db_path(tmp_path / "tasks.db")
-    yield
-    storage.set_db_path(original)
+    try:
+        yield
+    finally:
+        storage.set_db_path(original)
 
 
 def _tables(db_path: Path) -> set:
@@ -32,8 +36,19 @@ def _tables(db_path: Path) -> set:
     return {row[0] for row in rows}
 
 
-def test_create_task_persists_and_reloads():
+def _task_rows(db_path: Path):
+    import sqlite3
+
+    conn = sqlite3.connect(str(db_path))
+    try:
+        return conn.execute("SELECT id, title, done FROM tasks ORDER BY id").fetchall()
+    finally:
+        conn.close()
+
+
+def test_create_task_persists_and_reloads(tmp_path: Path):
     task = storage.create_task("Buy milk")
+    db_file = tmp_path / "tasks.db"
 
     assert task["id"] == 1
     assert task["title"] == "Buy milk"
@@ -43,6 +58,10 @@ def test_create_task_persists_and_reloads():
 
     stored = storage.get_task(1)
     assert stored == task
+
+    assert db_file.exists()
+    assert "tasks" in _tables(db_file)
+    assert _task_rows(db_file) == [(1, "Buy milk", 0)]
 
 
 def test_create_task_defaults_done_to_false_but_allows_true():
@@ -67,7 +86,7 @@ def test_get_task_returns_none_for_missing_task():
     assert storage.get_task(999) is None
 
 
-def test_update_task_can_change_title_and_done_status():
+def test_update_task_can_change_title_and_done_status(tmp_path: Path):
     task = storage.create_task("Original title")
 
     updated_title = storage.update_task(task["id"], title="New title")
@@ -78,17 +97,23 @@ def test_update_task_can_change_title_and_done_status():
     assert updated_done["title"] == "New title"
     assert updated_done["done"] is True
 
+    db_file = tmp_path / "tasks.db"
+    assert _task_rows(db_file) == [(task["id"], "New title", 1)]
+
 
 def test_update_task_returns_none_for_missing_task():
     assert storage.update_task(999, title="Missing", done=True) is None
 
 
-def test_delete_task_removes_task_and_persists_change():
+def test_delete_task_removes_task_and_persists_change(tmp_path: Path):
     task = storage.create_task("Delete me")
 
     assert storage.delete_task(task["id"]) is True
     assert storage.get_task(task["id"]) is None
     assert storage.list_tasks() == []
+
+    db_file = tmp_path / "tasks.db"
+    assert _task_rows(db_file) == []
 
 
 def test_delete_task_returns_false_for_missing_task():
@@ -100,11 +125,8 @@ def test_db_file_is_initialized_and_visible_on_disk(tmp_path: Path):
     task: Dict[str, Any] = storage.create_task("Persisted", db_path=db_file)
 
     assert db_file.exists()
-    tables = _tables(db_file)
-    assert "tasks" in tables
+    assert "tasks" in _tables(db_file)
 
-    # The AUTOINCREMENT column requires SQLite's internal sequence table once
-    # a row has been inserted; both are the persisted on-disk state.
     import sqlite3
 
     conn = sqlite3.connect(str(db_file))
@@ -130,6 +152,23 @@ def test_storage_can_reload_data_after_restart_simulation(tmp_path: Path):
 
     after_restart = storage.create_task("After restart", db_path=db_file)
     assert after_restart["id"] == next_id_before_restart + 1
+
+    import sqlite3
+
+    conn = sqlite3.connect(str(db_file))
+    try:
+        rows = conn.execute("SELECT id, title, done FROM tasks ORDER BY id").fetchall()
+        next_id = conn.execute(
+            "SELECT seq FROM sqlite_sequence WHERE name = 'tasks'"
+        ).fetchone()[0]
+    finally:
+        conn.close()
+
+    assert rows == [
+        (task["id"], "Across restart", 0),
+        (after_restart["id"], "After restart", 0),
+    ]
+    assert next_id == after_restart["id"]
 
 
 def test_ids_are_never_reused_after_deletion():
