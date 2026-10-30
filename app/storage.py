@@ -11,6 +11,11 @@ the schema exists, performs its operation, commits, and closes — mirroring the
 old "load / mutate / write" pattern, so a restarted process always sees
 previously committed data. ``AUTOINCREMENT`` guarantees that ids are never
 reused after deletion, preserving the old "next id only increases" behavior.
+
+The application's startup hook calls :func:`initialize_db` once at boot so the
+database file and schema exist before the first request is served, and a
+misconfigured or unwritable ``DB_PATH`` fails fast at startup rather than on
+the first write (see KAN-26).
 """
 
 from __future__ import annotations
@@ -34,6 +39,30 @@ def set_db_path(path: Union[str, Path]) -> None:
     global DB_PATH
     with _lock:
         DB_PATH = str(path)
+
+
+def initialize_db(db_path: Optional[Union[str, Path]] = None) -> str:
+    """Eagerly create the database file, its parent directory, and the schema.
+
+    Called from the app's startup hook so a fresh deploy (empty/missing DB
+    file) is fully initialized before the first request arrives, and an
+    unwritable or otherwise unusable path raises a clear ``RuntimeError`` at
+    boot instead of failing on the first write. Returns the resolved path.
+
+    Note that ``:memory:`` databases cannot be "created on disk"; initializing
+    one is a no-op by design (its schema is recreated by each connection).
+    """
+    path = _resolve_path(db_path)
+    with _lock:
+        try:
+            conn = _connect(path)
+            conn.close()
+        except (OSError, sqlite3.Error) as exc:
+            raise RuntimeError(
+                f"Could not initialize the task database at {path!r}: {exc}. "
+                "Check that the DB_PATH location exists and is writable."
+            ) from exc
+    return path
 
 
 def _resolve_path(db_path: Optional[Union[str, Path]]) -> str:
