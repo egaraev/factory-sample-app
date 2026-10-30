@@ -7,6 +7,7 @@ additional endpoints are deferred to follow-up epics.
 ## Prerequisites
 
 - Python 3.9+ (with `pip`)
+- Docker for containerized runs
 - `curl` for manual verification (preinstalled on most systems)
 
 ## Setup
@@ -31,6 +32,68 @@ uvicorn app.main:app --reload
 The server listens on `http://127.0.0.1:8000` and reloads automatically on
 code changes. Interactive API docs are served at
 `http://127.0.0.1:8000/docs`. Stop the server with `Ctrl+C`.
+
+## Run with Docker
+
+The service is packaged as a standalone image in the [`Dockerfile`](Dockerfile)
+at the repository root. The image is based on `python:3.12-slim`, installs only
+the runtime dependencies (`requirements.txt` — no pytest/httpx), and starts the
+service with the production ASGI server (uvicorn, no `--reload`) as a
+non-root user.
+
+### Build the image
+
+From the repository root:
+
+```bash
+docker build -t factory-sample-app .
+```
+
+### Run the container
+
+The service listens on port **8000** (fixed and documented here). Map it to the
+host with `-p 8000:8000`:
+
+```bash
+docker run --rm -p 8000:8000 factory-sample-app
+```
+
+Then, from another terminal:
+
+```bash
+curl http://localhost:8000/hello
+# -> {"message": "Hello, World!"}
+curl http://localhost:8000/tasks
+# -> []
+```
+
+Interactive API docs are served at `http://localhost:8000/docs`.
+
+### Persistence (task storage)
+
+Tasks are persisted to the file named by the `TASKS_DATA_FILE` environment
+variable, which defaults to `/data/tasks.json` inside the container. That path
+is declared as a Docker volume (`VOLUME /data`), so persistence survives restarts
+and can be redirected in either of two ways:
+
+- Mount a **named volume** for simple, durable storage:
+
+  ```bash
+  docker run --rm -p 8000:8000 -v factory-data:/data factory-sample-app
+  ```
+
+- Mount a **host directory** to inspect the JSON file directly:
+
+  ```bash
+  docker run --rm -p 8000:8000 -v "$PWD/data":/data factory-sample-app
+  ```
+
+- Or point storage at an entirely different path with `-e`:
+
+  ```bash
+  docker run --rm -p 8000:8000 -e TASKS_DATA_FILE=/tmp/tasks.json \
+    -v "$PWD/tmp":/tmp factory-sample-app
+  ```
 
 ## Verify manually
 
@@ -190,5 +253,8 @@ tests/
   test_storage.py  # persistence layer tests
   test_tasks.py    # task endpoint tests
 requirements.txt
+requirements-dev.txt
+Dockerfile
+.dockerignore
 README.md
 ```
