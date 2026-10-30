@@ -30,6 +30,17 @@ def _create_task(client, title, done=False):
     return response.json()
 
 
+def _tables(db_path: Path) -> set:
+    import sqlite3
+
+    conn = sqlite3.connect(str(db_path))
+    try:
+        rows = conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'").fetchall()
+    finally:
+        conn.close()
+    return {row[0] for row in rows}
+
+
 def test_startup_creates_database_before_first_request(tmp_path: Path):
     """KAN-26: a fresh DB_PATH must be fully set up before any request is served."""
     db_file = tmp_path / "fresh" / "tasks.db"
@@ -59,17 +70,6 @@ def test_startup_fails_fast_when_db_path_is_unusable(tmp_path: Path):
     with pytest.raises(RuntimeError, match="Could not initialize the task database"):
         with TestClient(app) as test_client:  # pragma: no cover - startup raises
             test_client.get("/tasks")
-
-
-def _tables(db_path: Path) -> set:
-    import sqlite3
-
-    conn = sqlite3.connect(str(db_path))
-    try:
-        rows = conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'").fetchall()
-    finally:
-        conn.close()
-    return {row[0] for row in rows}
 
 
 def test_create_task_returns_201_and_defaults_done_to_false(client):
@@ -170,11 +170,32 @@ def test_delete_task_returns_not_found_for_missing_id(client):
 def test_tasks_are_persisted_to_sqlite_file_and_visible_after_restart(
     client, tmp_path: Path
 ):
+    """KAN-28: tasks must persist to the SQLite file and be visible after restart.
+
+    Creates a task through the API, then verifies persistence by querying the
+    temporary SQLite file directly (rather than parsing JSON) before simulating
+    a process restart with a fresh ``TestClient`` pointed at the same storage
+    path.
+    """
     task = _create_task(client, "Persist me")
     db_file = tmp_path / "tasks.db"
 
     assert db_file.exists()
 
+    # Query the temporary SQLite file directly: the committed row must match
+    # what the API returned (``done`` is stored as 0/1 in the database).
+    import sqlite3
+
+    conn = sqlite3.connect(str(db_file))
+    try:
+        rows = conn.execute("SELECT id, title, done FROM tasks ORDER BY id").fetchall()
+    finally:
+        conn.close()
+
+    assert rows == [(task["id"], task["title"], int(task["done"]))]
+
+    # A fresh ``TestClient`` against the same path simulates a restart: it sees
+    # exactly what was committed to the SQLite file.
     with TestClient(app) as restarted_client:
         response = restarted_client.get(f"/tasks/{task['id']}")
 
