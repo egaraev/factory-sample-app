@@ -1,6 +1,5 @@
 """API-level tests for the task CRUD endpoints."""
 
-import json
 from pathlib import Path
 
 import pytest
@@ -11,12 +10,12 @@ from app.main import app
 
 
 @pytest.fixture(autouse=True)
-def isolated_storage_file(tmp_path, monkeypatch):
-    """Point storage at a temporary file and restore it after each test."""
-    original = storage.DATA_FILE
-    storage.set_data_file(tmp_path / "tasks.json")
+def isolated_db_file(tmp_path, monkeypatch):
+    """Point storage at a temporary database file and restore it after each test."""
+    original = storage.DB_PATH
+    storage.set_db_path(tmp_path / "tasks.db")
     yield
-    storage.set_data_file(original)
+    storage.set_db_path(original)
 
 
 @pytest.fixture()
@@ -126,12 +125,13 @@ def test_delete_task_returns_not_found_for_missing_id(client):
     assert response.json() == {"detail": "Task not found"}
 
 
-def test_tasks_are_persisted_to_json_file_and_visible_after_restart(client, tmp_path: Path):
+def test_tasks_are_persisted_to_sqlite_file_and_visible_after_restart(
+    client, tmp_path: Path
+):
     task = _create_task(client, "Persist me")
-    data_file = tmp_path / "tasks.json"
+    db_file = tmp_path / "tasks.db"
 
-    assert data_file.exists()
-    assert '"title": "Persist me"' in data_file.read_text(encoding="utf-8")
+    assert db_file.exists()
 
     with TestClient(app) as restarted_client:
         response = restarted_client.get(f"/tasks/{task['id']}")
@@ -151,13 +151,13 @@ def test_task_data_survives_simulated_process_restart(client, tmp_path: Path):
     first = _create_task(client, "Buy oat milk")
     second = _create_task(client, "Walk the dog", done=True)
 
-    data_file = tmp_path / "tasks.json"
-    assert data_file.exists()
+    db_file = tmp_path / "tasks.db"
+    assert db_file.exists()
 
     # Simulate a process restart: create a brand-new TestClient.  Because
-    # the storage module reads from disk on every call (no in-memory cache),
-    # the fresh client sees exactly what was written to the JSON file —
-    # nothing is carried over from the previous "process".
+    # the storage module opens a fresh database connection on every call (no
+    # in-memory cache), the fresh client sees exactly what was committed to
+    # the SQLite file — nothing is carried over from the previous "process".
     with TestClient(app) as restarted_client:
         # All previously created tasks are still present, in order.
         list_response = restarted_client.get("/tasks")
@@ -170,16 +170,24 @@ def test_task_data_survives_simulated_process_restart(client, tmp_path: Path):
             assert detail_response.status_code == 200
             assert detail_response.json() == expected
 
-        # The next-id counter persisted: a new task gets the sequential id
-        # rather than colliding with the pre-restart tasks.
+        # The auto-increment counter persisted: a new task gets the sequential
+        # id rather than colliding with the pre-restart tasks.
         third = _create_task(restarted_client, "Created after restart")
         assert third["id"] == max(first["id"], second["id"]) + 1
 
-    # The on-disk JSON file is the authoritative source of truth: it contains
-    # every task (including the one created post-restart) and the updated
-    # next-id counter.
-    with open(data_file, "r", encoding="utf-8") as handle:
-        stored = json.load(handle)
+    # The SQLite file is the authoritative source of truth: it contains every
+    # task (including the one created post-restart) and the next id will keep
+    # increasing.
+    import sqlite3
 
-    assert [t["id"] for t in stored["tasks"]] == [first["id"], second["id"], third["id"]]
-    assert stored["next_id"] == third["id"] + 1
+    conn = sqlite3.connect(str(db_file))
+    try:
+        rows = conn.execute("SELECT id, title, done FROM tasks ORDER BY id").fetchall()
+        next_id = conn.execute(
+            "SELECT seq FROM sqlite_sequence WHERE name = 'tasks'"
+        ).fetchone()[0]
+    finally:
+        conn.close()
+
+    assert [row[0] for row in rows] == [first["id"], second["id"], third["id"]]
+    assert next_id == third["id"]

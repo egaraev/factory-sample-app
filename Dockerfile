@@ -1,8 +1,9 @@
 # Runtime-only image for the FastAPI task-list service.
 #
 # Installs just enough to run (fastapi + uvicorn via requirements.txt — no
-# dev/test deps), serves on a fixed port 8000, and keeps task data in a
-# mounted /data volume so persistence works without any app code changes.
+# dev/test deps), serves on a fixed port 8000, and keeps the SQLite task
+# database in a mounted /data volume so persistence works without any app code
+# changes.
 
 FROM python:3.12-slim
 
@@ -29,8 +30,8 @@ RUN groupadd -g 1000 app \
 USER app
 
 # Fixed, documented storage location. Overridable at runtime with
-# `docker run -e TASKS_DATA_FILE=...` pointing at any (mounted) path.
-ENV TASKS_DATA_FILE=/data/tasks.json
+# `docker run -e DB_PATH=...` pointing at any (mounted) path.
+ENV DB_PATH=/data/tasks.db
 
 VOLUME ["/data"]
 EXPOSE 8000

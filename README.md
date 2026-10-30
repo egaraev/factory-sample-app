@@ -1,8 +1,8 @@
 # factory-sample-app
 
-Minimal FastAPI service with a `/hello` endpoint and a small JSON-backed task
-list API. This is a proof-of-pipeline scaffold; persistence, frontend, and
-additional endpoints are deferred to follow-up epics.
+Minimal FastAPI service with a `/hello` endpoint and a small SQLite-backed task
+list API. This is a proof-of-pipeline scaffold; frontend, and additional
+endpoints are deferred to follow-up epics.
 
 ## Prerequisites
 
@@ -78,10 +78,10 @@ Interactive API docs are served at `http://localhost:8000/docs`.
 
 ### Persistence (task storage)
 
-Tasks are persisted to the file named by the `TASKS_DATA_FILE` environment
-variable, which defaults to `/data/tasks.json` inside the container. That path
-is declared as a Docker volume (`VOLUME /data`), so persistence survives restarts
-and can be redirected in either of two ways:
+Tasks are persisted in the SQLite database file named by the `DB_PATH`
+environment variable, which defaults to `/data/tasks.db` inside the container.
+That path is declared as a Docker volume (`VOLUME /data`), so persistence
+survives restarts and can be redirected in either of two ways:
 
 - Mount a **named volume** for simple, durable storage:
 
@@ -90,13 +90,13 @@ and can be redirected in either of two ways:
   ```
 
 - Mount a **host directory** at `/data` and explicitly keep the default
-  `TASKS_DATA_FILE` value. Create the directory first so it exists on the host
+  `DB_PATH` value. Create the directory first so it exists on the host
   and can be made writable by the container user (UID `1000`) if needed:
 
   ```bash
   mkdir -p data
   docker run -p 8000:8000 \
-    -e TASKS_DATA_FILE=/data/tasks.json \
+    -e DB_PATH=/data/tasks.db \
     -v "$(pwd)/data":/data \
     factory-sample-app
   ```
@@ -105,7 +105,7 @@ and can be redirected in either of two ways:
 
   ```bash
   docker run -p 8000:8000 \
-    -e TASKS_DATA_FILE=/tmp/tasks.json \
+    -e DB_PATH=/tmp/tasks.db \
     -v "$(pwd)/tmp":/tmp \
     factory-sample-app
   ```
@@ -148,10 +148,10 @@ Expected response:
 
 ## Task API
 
-Tasks are stored in `data/tasks.json` by default, so they persist across
-service restarts. The file is created automatically on the first write. You
-can override the storage location with the `TASKS_DATA_FILE` environment
-variable.
+Tasks are stored in `data/tasks.db` (a SQLite database) by default, so they
+persist across service restarts. The file is created automatically on the
+first write. You can override the storage location with the `DB_PATH`
+environment variable.
 
 ### Create a task
 
@@ -275,6 +275,10 @@ Not-found response (`404 Not Found`):
 pytest
 ```
 
+Tests are isolated: each test redirects the storage layer to a temporary
+SQLite database (per-test `tmp_path`) and never touches a shared or real
+database file.
+
 ## Project structure
 
 ```
@@ -282,7 +286,7 @@ app/
   __init__.py
   main.py          # FastAPI app + /hello endpoint + task router wiring
   schemas.py       # Pydantic models for task request/response payloads
-  storage.py       # JSON-file-backed persistence layer
+  storage.py       # SQLite-backed persistence layer
   tasks.py         # Task CRUD API routes
 tests/
   test_hello.py    # endpoint test
