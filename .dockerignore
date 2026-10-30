@@ -1,0 +1,53 @@
+# Version control and repository metadata
+.git/
+.github/
+
+# CI / deployment files not needed in the runtime image
+k8s/
+secrets/
+*.secret.yaml
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Python caches and build artifacts
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+build/
+dist/
+
+# Testing and development tooling
+tests/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+coverage.xml
+pytest.ini
+tox.ini
+requirements-dev.txt
+
+# Local data and generated files
+data/
+*.log
+*.tmp
+.env
+.env.*
+
+# Documentation / repository-only files
+README.md
+LICENSE
+CODEOWNERS
+docs/
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
