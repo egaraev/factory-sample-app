@@ -207,13 +207,17 @@ curl "http://127.0.0.1:8000/tasks?done=false"
 Expected response for `GET /tasks?done=true` (`200 OK`):
 
 ```json
-[{"id": 2, "title": "Walk dog", "done": true}]
+[
+  {"id": 2, "title": "Walk dog", "done": true}
+]
 ```
 
 Expected response for `GET /tasks?done=false` (`200 OK`):
 
 ```json
-[{"id": 1, "title": "Buy milk", "done": false}]
+[
+  {"id": 1, "title": "Buy milk", "done": false}
+]
 ```
 
 A filter that matches no tasks returns an empty list (`[]`), and values FastAPI
@@ -243,11 +247,13 @@ Not-found response (`404 Not Found`):
 ### Mark a task complete or incomplete
 
 `PATCH /tasks/{task_id}` is the completion-focused endpoint: its body must
-contain only a `done` flag, which sets the task's status to completed
-(`true`) or incomplete (`false`) and returns the updated task. The title is
-never changed through this endpoint. A missing task returns
-`404 Not Found`, and an empty or otherwise invalid body (e.g. a request with
-no `done` field) is rejected with `422 Unprocessable Entity`:
+include a `done` flag, which sets the task's status to completed (`true`) or
+incomplete (`false`) and returns the updated task. The title is never changed
+through this endpoint. A missing task returns `404 Not Found`, and an empty or
+otherwise invalid body (e.g. a request with no `done` field) is rejected with
+`422 Unprocessable Entity`:
+
+To mark a task complete:
 
 ```bash
 curl -X PATCH http://127.0.0.1:8000/tasks/1 \
@@ -255,14 +261,27 @@ curl -X PATCH http://127.0.0.1:8000/tasks/1 \
   -d '{"done": true}'
 ```
 
-Expected response (`200 OK`):
+Expected response after marking the task complete (`200 OK`):
 
 ```json
 {"id": 1, "title": "Buy milk", "done": true}
 ```
 
-To mark it incomplete again, send `{"done": false}`. Not-found response
-(`404 Not Found`):
+To mark it incomplete again:
+
+```bash
+curl -X PATCH http://127.0.0.1:8000/tasks/1 \
+  -H "Content-Type: application/json" \
+  -d '{"done": false}'
+```
+
+Expected response after marking the task incomplete (`200 OK`):
+
+```json
+{"id": 1, "title": "Buy milk", "done": false}
+```
+
+Not-found response (`404 Not Found`):
 
 ```json
 {"detail": "Task not found"}
