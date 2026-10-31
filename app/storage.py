@@ -98,12 +98,28 @@ def _row_to_task(row: sqlite3.Row) -> Dict[str, Any]:
     return {"id": row["id"], "title": row["title"], "done": bool(row["done"])}
 
 
-def list_tasks(db_path: Optional[Union[str, Path]] = None) -> List[Dict[str, Any]]:
-    """Return all tasks ordered by id."""
+def list_tasks(
+    done: Optional[bool] = None,
+    db_path: Optional[Union[str, Path]] = None,
+) -> List[Dict[str, Any]]:
+    """Return tasks ordered by id, optionally filtered by completion status.
+
+    ``done`` defaults to ``None``, meaning no filtering and every task is
+    returned (the historical behavior). Pass ``True`` or ``False`` to return
+    only tasks whose stored ``done`` flag matches that status; the match is
+    applied with the same ``int(bool(...))`` conversion used when writing the
+    column, since SQLite stores the flag as 0/1.
+    """
     path = _resolve_path(db_path)
     conn = _connect(path)
     try:
-        rows = conn.execute("SELECT * FROM tasks ORDER BY id").fetchall()
+        if done is None:
+            rows = conn.execute("SELECT * FROM tasks ORDER BY id").fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT * FROM tasks WHERE done = ? ORDER BY id",
+                (int(bool(done)),),
+            ).fetchall()
     finally:
         conn.close()
 
