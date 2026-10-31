@@ -207,13 +207,17 @@ curl "http://127.0.0.1:8000/tasks?done=false"
 Expected response for `GET /tasks?done=true` (`200 OK`):
 
 ```json
-[{"id": 2, "title": "Walk dog", "done": true}]
+[
+  {"id": 2, "title": "Walk dog", "done": true}
+]
 ```
 
 Expected response for `GET /tasks?done=false` (`200 OK`):
 
 ```json
-[{"id": 1, "title": "Buy milk", "done": false}]
+[
+  {"id": 1, "title": "Buy milk", "done": false}
+]
 ```
 
 A filter that matches no tasks returns an empty list (`[]`), and values FastAPI
