@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from typing import List
+from typing import List, Optional
 
-from fastapi import APIRouter, HTTPException, Response, status
+from fastapi import APIRouter, HTTPException, Query, Response, status
 
 from app import storage
-from app.schemas import Task, TaskCreate, TaskUpdate
+from app.schemas import Task, TaskComplete, TaskCreate, TaskUpdate
 
 router = APIRouter(tags=["tasks"])
 
@@ -23,8 +23,8 @@ def create_task(payload: TaskCreate):
 
 
 @router.get("/tasks", response_model=List[Task])
-def list_tasks():
-    tasks = storage.list_tasks()
+def list_tasks(done: Optional[bool] = Query(default=None)):
+    tasks = storage.list_tasks(done)
     return [Task(**task) for task in tasks]
 
 
@@ -39,6 +39,14 @@ def get_task(task_id: int):
 @router.put("/tasks/{task_id}", response_model=Task)
 def update_task(task_id: int, payload: TaskUpdate):
     updated = storage.update_task(task_id, title=payload.title, done=payload.done)
+    if updated is None:
+        raise _not_found()
+    return Task(**updated)
+
+
+@router.patch("/tasks/{task_id}", response_model=Task)
+def set_task_completion(task_id: int, payload: TaskComplete):
+    updated = storage.update_task(task_id, done=payload.done)
     if updated is None:
         raise _not_found()
     return Task(**updated)

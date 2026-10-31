@@ -113,6 +113,44 @@ def test_list_tasks_returns_all_tasks_in_id_order(client):
     assert response.json() == [first, second, third]
 
 
+def test_list_tasks_defaults_to_no_filtering_when_done_param_is_omitted(client):
+    first = _create_task(client, "First")
+    second = _create_task(client, "Second", done=True)
+    third = _create_task(client, "Third")
+
+    response = client.get("/tasks")
+
+    assert response.status_code == 200
+    assert response.json() == [first, second, third]
+
+
+def test_list_tasks_filters_by_done_query_param(client):
+    first = _create_task(client, "First")
+    second = _create_task(client, "Second", done=True)
+    third = _create_task(client, "Third")
+    fourth = _create_task(client, "Fourth", done=True)
+
+    completed = client.get("/tasks", params={"done": True})
+    assert completed.status_code == 200
+    assert completed.json() == [second, fourth]
+
+    not_completed = client.get("/tasks", params={"done": False})
+    assert not_completed.status_code == 200
+    assert not_completed.json() == [first, third]
+
+
+def test_list_tasks_done_filter_returns_empty_when_no_task_matches(client):
+    pending_only = _create_task(client, "Pending only")
+
+    completed = client.get("/tasks", params={"done": True})
+    assert completed.status_code == 200
+    assert completed.json() == []
+
+    not_completed = client.get("/tasks", params={"done": False})
+    assert not_completed.status_code == 200
+    assert not_completed.json() == [pending_only]
+
+
 def test_get_task_returns_existing_task(client):
     task = _create_task(client, "Buy milk", done=True)
 
@@ -155,6 +193,72 @@ def test_update_task_returns_not_found_for_missing_id(client):
 
     assert response.status_code == 404
     assert response.json() == {"detail": "Task not found"}
+
+
+def test_patch_task_marks_task_complete_and_incomplete(client):
+    task = _create_task(client, "Buy milk")
+
+    completed = client.patch(f"/tasks/{task['id']}", json={"done": True})
+
+    assert completed.status_code == 200
+    body = completed.json()
+    assert body["id"] == task["id"]
+    assert body["title"] == "Buy milk"
+    assert body["done"] is True
+
+    not_completed = client.patch(f"/tasks/{task['id']}", json={"done": False})
+
+    assert not_completed.status_code == 200
+    body = not_completed.json()
+    assert body["id"] == task["id"]
+    assert body["title"] == "Buy milk"
+    assert body["done"] is False
+
+
+def test_patch_task_leaves_title_unchanged(client):
+    original_title = "Walk the dog"
+    task = _create_task(client, original_title)
+
+    response = client.patch(f"/tasks/{task['id']}", json={"done": True})
+
+    assert response.status_code == 200
+    assert response.json()["title"] == original_title
+
+
+def test_patch_task_persists_done_status(client, tmp_path: Path):
+    task = _create_task(client, "Persist completion")
+
+    completed = client.patch(f"/tasks/{task['id']}", json={"done": True})
+    assert completed.status_code == 200
+    assert completed.json()["done"] is True
+
+    import sqlite3
+
+    db_file = tmp_path / "tasks.db"
+    conn = sqlite3.connect(str(db_file))
+    try:
+        row = conn.execute(
+            "SELECT title, done FROM tasks WHERE id = ?", (task["id"],)
+        ).fetchone()
+    finally:
+        conn.close()
+
+    assert row == (task["title"], 1)
+
+
+def test_patch_task_returns_not_found_for_missing_id(client):
+    response = client.patch("/tasks/999", json={"done": True})
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Task not found"}
+
+
+def test_patch_task_requires_done_field(client):
+    task = _create_task(client, "Needs explicit status")
+
+    response = client.patch(f"/tasks/{task['id']}", json={})
+
+    assert response.status_code == 422
 
 
 def test_delete_task_removes_task_and_returns_no_content(client):
