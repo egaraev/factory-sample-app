@@ -81,6 +81,50 @@ def test_list_tasks_returns_all_tasks_in_id_order():
     assert [task["id"] for task in tasks] == [first["id"], second["id"], third["id"]]
 
 
+def test_list_tasks_defaults_to_no_filtering():
+    # KAN-57: callers that don't pass ``done`` keep seeing every task,
+    # regardless of completion status.
+    first = storage.create_task("First")
+    second = storage.create_task("Second", done=True)
+    third = storage.create_task("Third")
+
+    tasks = storage.list_tasks()
+    assert [task["id"] for task in tasks] == [first["id"], second["id"], third["id"]]
+
+
+def test_list_tasks_filters_by_done_status():
+    # KAN-57: done=True/done=False return only matching tasks, still ordered
+    # by id.
+    first = storage.create_task("First")
+    second = storage.create_task("Second", done=True)
+    third = storage.create_task("Third")
+    fourth = storage.create_task("Fourth", done=True)
+
+    completed = storage.list_tasks(done=True)
+    assert [task["id"] for task in completed] == [second["id"], fourth["id"]]
+    assert all(task["done"] is True for task in completed)
+
+    not_completed = storage.list_tasks(done=False)
+    assert [task["id"] for task in not_completed] == [first["id"], third["id"]]
+    assert all(task["done"] is False for task in not_completed)
+
+
+def test_list_tasks_done_filter_returns_empty_when_no_task_matches():
+    only_pending = storage.create_task("Pending only")
+
+    assert storage.list_tasks(done=True) == []
+    pending = storage.list_tasks(done=False)
+    assert [task["id"] for task in pending] == [only_pending["id"]]
+
+    # Complete the last pending task (and add more done tasks) so that no
+    # task matches the done=False filter anymore.
+    storage.update_task(only_pending["id"], done=True)
+    storage.create_task("Done one", done=True)
+    storage.create_task("Done two", done=True)
+
+    assert storage.list_tasks(done=False) == []
+
+
 def test_get_task_returns_none_for_missing_task():
     storage.create_task("Existing task")
     assert storage.get_task(999) is None
