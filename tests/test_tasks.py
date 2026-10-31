@@ -366,3 +366,76 @@ def test_task_data_survives_simulated_process_restart(client, tmp_path: Path):
 
     assert [row[0] for row in rows] == [first["id"], second["id"], third["id"]]
     assert next_id == third["id"]
+
+
+# KAN-62: API-level coverage for the completion-focused PATCH endpoint and the
+# optional ``done`` query parameter on the task list endpoint. These tests use
+# only the existing ``client`` fixture and ``_create_task`` helper so they fail
+# if either the PATCH route or the list filter is removed/reverted.
+
+
+def test_kan62_patch_done_true_marks_incomplete_task_complete_and_keeps_title(client):
+    task = _create_task(client, "KAN-62 incomplete", done=False)
+
+    response = client.patch(f"/tasks/{task['id']}", json={"done": True})
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "id": task["id"],
+        "title": "KAN-62 incomplete",
+        "done": True,
+    }
+
+
+def test_kan62_patch_done_false_marks_complete_task_incomplete(client):
+    task = _create_task(client, "KAN-62 complete", done=True)
+
+    response = client.patch(f"/tasks/{task['id']}", json={"done": False})
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "id": task["id"],
+        "title": "KAN-62 complete",
+        "done": False,
+    }
+
+
+def test_kan62_patch_missing_id_returns_404_task_not_found(client):
+    response = client.patch("/tasks/999", json={"done": True})
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Task not found"}
+
+
+def test_kan62_get_tasks_done_true_returns_only_completed_tasks(client):
+    completed_before = _create_task(client, "KAN-62 complete one", done=True)
+    incomplete_one = _create_task(client, "KAN-62 incomplete one")
+    incomplete_two = _create_task(client, "KAN-62 incomplete two")
+    completed_after = _create_task(client, "KAN-62 complete two", done=True)
+
+    response = client.get("/tasks", params={"done": True})
+
+    assert response.status_code == 200
+    assert response.json() == [completed_before, completed_after]
+
+
+def test_kan62_get_tasks_done_false_returns_only_incomplete_tasks(client):
+    incomplete_one = _create_task(client, "KAN-62 incomplete one")
+    complete_one = _create_task(client, "KAN-62 complete one", done=True)
+    incomplete_two = _create_task(client, "KAN-62 incomplete two")
+
+    response = client.get("/tasks", params={"done": False})
+
+    assert response.status_code == 200
+    assert response.json() == [incomplete_one, incomplete_two]
+
+
+def test_kan62_get_tasks_without_done_param_returns_every_task(client):
+    incomplete_one = _create_task(client, "KAN-62 incomplete one")
+    complete_one = _create_task(client, "KAN-62 complete one", done=True)
+    incomplete_two = _create_task(client, "KAN-62 incomplete two")
+
+    response = client.get("/tasks")
+
+    assert response.status_code == 200
+    assert response.json() == [incomplete_one, complete_one, incomplete_two]
