@@ -125,6 +125,35 @@ def test_list_tasks_done_filter_returns_empty_when_no_task_matches():
     assert storage.list_tasks(done=False) == []
 
 
+def test_list_tasks_completion_filter_cases():
+    # KAN-61: explicit unit coverage for the storage-layer completion filter.
+    # An empty table returns no rows for either filter value or when unfiltered.
+    assert storage.list_tasks() == []
+    assert storage.list_tasks(done=True) == []
+    assert storage.list_tasks(done=False) == []
+
+    first = storage.create_task("Pending default")
+    second = storage.create_task("Done explicit", done=True)
+    third = storage.create_task("Pending explicit", done=False)
+    fourth = storage.create_task("Done again", done=True)
+
+    # No filter returns every task, regardless of completion status.
+    assert [task["id"] for task in storage.list_tasks()] == [
+        first["id"],
+        second["id"],
+        third["id"],
+        fourth["id"],
+    ]
+
+    completed = storage.list_tasks(done=True)
+    assert [task["id"] for task in completed] == [second["id"], fourth["id"]]
+    assert all(task["done"] is True for task in completed)
+
+    not_completed = storage.list_tasks(done=False)
+    assert [task["id"] for task in not_completed] == [first["id"], third["id"]]
+    assert all(task["done"] is False for task in not_completed)
+
+
 def test_get_task_returns_none_for_missing_task():
     storage.create_task("Existing task")
     assert storage.get_task(999) is None
