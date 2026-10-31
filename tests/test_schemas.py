@@ -2,7 +2,7 @@
 
 import pytest
 
-from app.schemas import Task, TaskCreate, TaskUpdate
+from app.schemas import Task, TaskComplete, TaskCreate, TaskUpdate
 
 
 def test_task_create_requires_title():
@@ -40,6 +40,19 @@ def test_task_update_supports_partial_bodies():
     done_only = TaskUpdate(done=True)
     assert done_only.title is None
     assert done_only.done is True
+
+
+def test_task_complete_requires_done():
+    with pytest.raises(ValueError):
+        TaskComplete()  # type: ignore[call-arg]
+
+
+def test_task_complete_constructs_with_explicit_done_flag():
+    completed = TaskComplete(done=True)
+    not_completed = TaskComplete(done=False)
+
+    assert completed.done is True
+    assert not_completed.done is False
 
 
 def test_task_requires_all_fields():

@@ -21,6 +21,16 @@ class TaskUpdate(BaseModel):
     done: Optional[bool] = None
 
 
+class TaskComplete(BaseModel):
+    """Payload for marking a task complete or incomplete.
+
+    Unlike :class:`TaskUpdate`, the ``done`` flag is required so the completion
+    endpoint cannot accept an empty body.
+    """
+
+    done: bool
+
+
 class Task(BaseModel):
     """A task as returned by the API."""
 
