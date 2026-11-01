@@ -415,6 +415,37 @@ Expected response (`200 OK`):
 {"discount": 0.0}
 ```
 
+An invalid `order_total` is rejected by request validation before any
+calculation happens. For example, sending zero:
+
+```bash
+curl -X POST http://127.0.0.1:8000/discount \
+  -H "Content-Type: application/json" \
+  -d '{"order_total": 0, "customer_tier": "gold"}'
+```
+
+Expected response (`422 Unprocessable Entity`); FastAPI returns pydantic's
+validation error for the offending field (the `url` version suffix varies with
+the installed pydantic release):
+
+```json
+{
+  "detail": [
+    {
+      "type": "greater_than",
+      "loc": ["body", "order_total"],
+      "msg": "Input should be greater than 0",
+      "input": 0,
+      "ctx": {"gt": 0},
+      "url": "https://errors.pydantic.dev/2.x/v/greater_than"
+    }
+  ]
+}
+```
+
+Negative or non-numeric `order_total` values — and a request missing the field
+entirely — are rejected the same way.
+
 ## Test
 
 ```bash
