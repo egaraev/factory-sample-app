@@ -430,15 +430,17 @@ database file.
 ```
 app/
   __init__.py
-  main.py          # FastAPI app + /hello endpoint + task router wiring
+  main.py          # FastAPI app + /hello endpoint + task/discount router wiring
   schemas.py       # Pydantic models for request/response payloads
   storage.py       # SQLite-backed persistence layer
   tasks.py         # Task CRUD API routes
+  discount.py      # calculate_discount + POST /discount router
 tests/
   test_hello.py    # endpoint test
   test_schemas.py  # schema tests
   test_storage.py  # persistence layer tests
   test_tasks.py    # task endpoint tests
+  test_discount.py # calculate_discount + endpoint tests
 requirements.txt
 requirements-dev.txt
 Dockerfile
