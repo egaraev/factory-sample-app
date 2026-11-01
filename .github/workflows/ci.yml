@@ -53,8 +53,28 @@ jobs:
             ghcr.io/${{ github.repository }}:latest
             ghcr.io/${{ github.repository }}:${{ github.sha }}
 
-  deploy:
+  # staged-delivery part 1: nothing built here gets anywhere (staging or
+  # production) until this passes. scans the exact image build-and-push just
+  # pushed, by its sha tag, not :latest -- so what's scanned is always the
+  # same bits that would actually get deployed
+  security-scan:
     needs: build-and-push
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Scan image for CRITICAL/HIGH vulnerabilities
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ghcr.io/${{ github.repository }}:${{ github.sha }}
+          severity: CRITICAL,HIGH
+          exit-code: "1"
+          # a CVE with no fix released yet would otherwise block every single
+          # build forever with nothing anyone can do about it -- only fail on
+          # the ones there's actually a fixed version to upgrade to
+          ignore-unfixed: true
+
+  deploy:
+    needs: [build-and-push, security-scan]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
