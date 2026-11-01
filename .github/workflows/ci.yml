@@ -52,3 +52,15 @@ jobs:
           tags: |
             ghcr.io/${{ github.repository }}:latest
             ghcr.io/${{ github.repository }}:${{ github.sha }}
+
+  deploy:
+    needs: build-and-push
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout factory-manifests
+        uses: actions/checkout@v4
+        with:
+          repository: egaraev/factory-manifests
+          token: ${{ secrets.MANIFESTS_WRITE_PAT }}
+          path: manifests
