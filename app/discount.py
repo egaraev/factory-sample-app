@@ -53,4 +53,4 @@ def get_discount(payload: DiscountRequest):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
         ) from exc
-    return DiscountResponse(discount=discount)
+    return DiscountResponse(discount_percentage=discount)

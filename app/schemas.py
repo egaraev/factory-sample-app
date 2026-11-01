@@ -1,4 +1,4 @@
-"""Pydantic request/response schemas for the task endpoints."""
+"""Pydantic request/response schemas for the task and discount endpoints."""
 
 from __future__ import annotations
 
@@ -53,6 +53,26 @@ class DiscountRequest(BaseModel):
 
 
 class DiscountResponse(BaseModel):
-    """Discount percentage returned by the discount endpoint."""
+    """Discount percentage returned by the discount endpoint.
 
-    discount: float
+    The canonical field is ``discount_percentage``; ``discount`` is a
+    convenience alias carrying the same value so callers can read either key.
+    """
+
+    model_config = {"populate_by_name": True}
+
+    discount_percentage: float = Field(
+        ...,
+        description="Discount percentage to apply to the order (0-100).",
+        serialization_alias="discount",
+    )
+    discount: Optional[float] = None
+
+    def __init__(self, **data):  # type: ignore[no-untyped-def]
+        if "discount" not in data and "discount_percentage" in data:
+            data["discount"] = data["discount_percentage"]
+        super().__init__(**data)
+
+    @property
+    def discount_percent(self):  # convenience alias for the canonical field
+        return self.discount_percentage
