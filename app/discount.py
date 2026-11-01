@@ -45,7 +45,9 @@ def calculate_discount(order_total: float, customer_tier: str) -> float:
 def get_discount(payload: DiscountRequest):
     """Return the discount percentage for an order total and customer tier."""
     try:
-        discount = calculate_discount(payload.order_total, payload.customer_tier)
+        discount_percentage = calculate_discount(
+            payload.order_total, payload.customer_tier
+        )
     except ValueError as exc:
         # The request schema already rejects non-positive totals with 422;
         # this keeps calculate_discount's documented contract intact for any
@@ -53,4 +55,4 @@ def get_discount(payload: DiscountRequest):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
         ) from exc
-    return DiscountResponse(discount_percentage=discount)
+    return DiscountResponse(discount_percentage=discount_percentage)

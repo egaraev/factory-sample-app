@@ -29,7 +29,7 @@ Start the service locally with one command:
 uvicorn app.main:app --reload
 ```
 
-The server listens on `http://127.0.0.1:8000` and reloads automatically on
+The server listens at `http://127.0.0.1:8000` and reloads automatically on
 code changes. Interactive API docs are served at
 `http://127.0.0.1:8000/docs`. Stop the server with `Ctrl+C`.
 
@@ -395,7 +395,7 @@ curl -X POST http://127.0.0.1:8000/discount \
 Expected response (`200 OK`):
 
 ```json
-{"discount": 15.0}
+{"discount_percentage": 15.0}
 ```
 
 An order below the threshold with a tier that never discounts:
@@ -409,7 +409,7 @@ curl -X POST http://127.0.0.1:8000/discount \
 Expected response (`200 OK`):
 
 ```json
-{"discount": 0.0}
+{"discount_percentage": 0.0}
 ```
 
 ## Test
