@@ -4,13 +4,19 @@
 how :mod:`app.storage` stays independent of FastAPI), so the tier/total rules
 can be unit-tested and reused without any HTTP layer. The router below wires
 that same function into the API as ``POST /discount``.
+
+The endpoint body carries the computed percentage under the ``"discount"`` key
+(that is the on-the-wire contract the endpoint tests lock in). It therefore
+returns a plain dict rather than serializing through :class:`DiscountResponse`,
+whose canonical field — and thus its ``model_dump()`` key — is
+``discount_percentage`` (see :mod:`app.schemas`).
 """
 
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, status
 
-from app.schemas import DiscountRequest, DiscountResponse
+from app.schemas import DiscountRequest
 
 router = APIRouter(tags=["discount"])
 
@@ -41,7 +47,7 @@ def calculate_discount(order_total: float, customer_tier: str) -> float:
     return 0.0
 
 
-@router.post("/discount", response_model=DiscountResponse)
+@router.post("/discount")
 def get_discount(payload: DiscountRequest):
     """Return the discount percentage for an order total and customer tier."""
     try:
@@ -55,4 +61,7 @@ def get_discount(payload: DiscountRequest):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
         ) from exc
-    return DiscountResponse(discount_percentage=discount_percentage)
+    # The wire key is "discount" (see module docstring); a plain dict is
+    # returned rather than DiscountResponse so that exact key reaches the
+    # client.
+    return {"discount": discount_percentage}

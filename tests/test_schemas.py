@@ -126,11 +126,10 @@ def test_discount_response_serializes_discount_percentage_field_only():
 def test_discount_response_wire_name_matches_endpoint_and_docs():
     """Lock the actual on-the-wire key so schema, endpoint tests, and README agree.
 
-    ``model_dump()`` reports the internal field name (``discount_percentage``)
-    and ignores aliases; FastAPI serializes with the ``serialization_alias``,
-    which is ``"discount"``. Both views are asserted explicitly so a future
-    change to either side fails here instead of surfacing as a doc/endpoint
-    mismatch.
+    The field name and the wire key are the same string (``discount_percentage``) —
+    the model has no alias — so both the plain ``model_dump()`` view and the JSON
+    view report that exact key. Both are asserted explicitly so a future change to
+    either side fails here instead of surfacing as a doc/endpoint mismatch.
     """
     response = DiscountResponse(discount_percentage=15.0)
 
@@ -141,5 +140,5 @@ def test_discount_response_wire_name_matches_endpoint_and_docs():
         by_alias = response.dict(by_alias=True)
         json_body = response.json()
 
-    assert by_alias == {"discount": 15.0}
-    assert json_body in ('{"discount": 15.0}', '{"discount":15.0}')
+    assert by_alias == {"discount_percentage": 15.0}
+    assert json_body in ('{"discount_percentage": 15.0}', '{"discount_percentage":15.0}')

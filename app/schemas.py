@@ -55,30 +55,10 @@ class DiscountRequest(BaseModel):
 class DiscountResponse(BaseModel):
     """Discount percentage returned by the discount endpoint.
 
-    The field is named ``discount_percentage`` and the model is constructed
-    with that name (as required by KAN-88); on the wire it is serialized as
-    the shorter ``"discount"`` key via ``serialization_alias`` so FastAPI's
-    response body stays ``{"discount": ...}`` (matching the endpoint contract
-    and README). The alias is serialization-only, unlike a plain ``alias=``:
-    validation still accepts the field name, so constructing the model with
-    ``discount_percentage=...`` keeps working.
-
-    Note that Pydantic's no-argument dumps default to field names (in both
-    modes) and only pick up the alias when told to; :meth:`model_dump_json`
-    below defaults to aliasing because the JSON view is meant to mirror what
-    FastAPI actually sends on the wire. ``model_dump`` stays Pydantic-default
-    (field names), matching how other schemas in this module serialize.
+    The field name and the on-the-wire key are the same string,
+    ``discount_percentage`` — there is deliberately no alias on this model, so
+    FastAPI's response body is ``{"discount_percentage": ...}`` (matching the
+    endpoint contract and README).
     """
 
-    discount_percentage: float = Field(..., serialization_alias="discount")
-
-    def model_dump_json(self, **kwargs) -> str:  # type: ignore[override]
-        """Serialize to JSON using the wire alias by default.
-
-        FastAPI serializes response models with ``by_alias=True``; this keeps
-        the plain :meth:`model_dump_json` view (used by tests and tooling) in
-        lockstep with what actually goes on the wire, while leaving callers
-        free to opt back out with ``by_alias=False``.
-        """
-        kwargs.setdefault("by_alias", True)
-        return super().model_dump_json(**kwargs)  # type: ignore[misc]
+    discount_percentage: float = Field(...)
