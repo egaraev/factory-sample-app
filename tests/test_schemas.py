@@ -1,8 +1,16 @@
 """Unit tests for the Pydantic task schemas in :mod:`app.schemas`."""
 
 import pytest
+from pydantic import ValidationError
 
-from app.schemas import Task, TaskComplete, TaskCreate, TaskUpdate
+from app.schemas import (
+    DiscountRequest,
+    DiscountResponse,
+    Task,
+    TaskComplete,
+    TaskCreate,
+    TaskUpdate,
+)
 
 
 def test_task_create_requires_title():
@@ -76,3 +84,61 @@ def test_task_serializes_all_three_fields():
         dumped = task.dict()
 
     assert dumped == {"id": 3, "title": "Walk dog", "done": True}
+
+
+def test_discount_request_accepts_positive_order_total():
+    request = DiscountRequest(order_total=150.0, customer_tier="gold")
+
+    assert request.order_total == 150.0
+    assert request.customer_tier == "gold"
+
+
+@pytest.mark.parametrize("order_total", [0, -0.01, -5])
+def test_discount_request_rejects_non_positive_order_total(order_total):
+    with pytest.raises(ValidationError):
+        DiscountRequest(order_total=order_total, customer_tier="gold")
+
+
+@pytest.mark.parametrize("customer_tier", ["gold", "silver", "bronze", "platinum"])
+def test_discount_request_accepts_any_string_customer_tier(customer_tier):
+    request = DiscountRequest(order_total=1.0, customer_tier=customer_tier)
+
+    assert request.customer_tier == customer_tier
+
+
+def test_discount_response_requires_discount_percentage():
+    with pytest.raises(ValueError):
+        DiscountResponse()  # type: ignore[call-arg]
+
+
+def test_discount_response_serializes_discount_percentage_field_only():
+    response = DiscountResponse(discount_percentage=15.0)
+
+    assert response.discount_percentage == 15.0
+    if hasattr(response, "model_dump"):  # Pydantic v2
+        dumped = response.model_dump()
+    else:  # Pydantic v1
+        dumped = response.dict()
+
+    assert dumped == {"discount_percentage": 15.0}
+
+
+def test_discount_response_wire_name_matches_endpoint_and_docs():
+    """Lock the actual on-the-wire key so schema, endpoint tests, and README agree.
+
+    The field name and the wire key are the same string (``discount_percentage``) —
+    the model has no alias — so both the plain ``model_dump()`` view and the JSON
+    view report that exact key. Both are asserted explicitly so a future change to
+    either side fails here instead of surfacing as a doc/endpoint mismatch.
+    """
+    response = DiscountResponse(discount_percentage=15.0)
+
+    if hasattr(response, "model_dump"):  # Pydantic v2
+        by_alias = response.model_dump(by_alias=True)
+        json_body = response.model_dump_json()
+    else:  # Pydantic v1
+        by_alias = response.dict(by_alias=True)
+        json_body = response.json()
+
+    assert by_alias == {"discount_percentage": 15.0}
+    assert json_body in ('{"discount_percentage": 15.0}', '{"discount_percentage":15.0}')

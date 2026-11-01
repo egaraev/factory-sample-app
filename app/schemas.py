@@ -1,4 +1,4 @@
-"""Pydantic request/response schemas for the task endpoints."""
+"""Pydantic request/response schemas for the task and discount endpoints."""
 
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ class TaskUpdate(BaseModel):
 class TaskComplete(BaseModel):
     """Payload for marking a task complete or incomplete.
 
-    Unlike :class:`TaskUpdate`, the ``done`` flag is required so the completion
+    Unlike :class:`TaskUpdate`, the ``done` flag is required so the completion
     endpoint cannot accept an empty body.
     """
 
@@ -42,8 +42,8 @@ class Task(BaseModel):
 class DiscountRequest(BaseModel):
     """Payload for the discount endpoint.
 
-    ``order_total`` must be a positive number — zero, negative, or non-numeric
-    input is rejected with ``422`` before any calculation happens.
+    ``order_total`` must be a positive number (``gt=0``) — zero, negative, or
+    non-numeric input is rejected with ``422`` before any calculation happens.
     ``customer_tier`` is a plain string: anything other than exactly
     ``"gold"``/``"silver"`` simply earns no discount (treated as bronze).
     """
@@ -53,6 +53,12 @@ class DiscountRequest(BaseModel):
 
 
 class DiscountResponse(BaseModel):
-    """Discount percentage returned by the discount endpoint."""
+    """Discount percentage returned by the discount endpoint.
 
-    discount: float
+    The field name and the on-the-wire key are the same string,
+    ``discount_percentage`` — there is deliberately no alias on this model, so
+    FastAPI's response body is ``{"discount_percentage": ...}`` (matching the
+    endpoint contract and README).
+    """
+
+    discount_percentage: float = Field(...)

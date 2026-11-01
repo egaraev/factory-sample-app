@@ -29,7 +29,7 @@ Start the service locally with one command:
 uvicorn app.main:app --reload
 ```
 
-The server listens on `http://127.0.0.1:8000` and reloads automatically on
+The server listens at `http://127.0.0.1:8000` and reloads automatically on
 code changes. Interactive API docs are served at
 `http://127.0.0.1:8000/docs`. Stop the server with `Ctrl+C`.
 
@@ -384,7 +384,8 @@ persistence. The rules (the 100 boundary is inclusive):
 `order_total` must be a positive number: zero, negative, non-numeric values, or
 a missing field are rejected with `422 Unprocessable Entity`. Tier matching is
 an exact match on `"gold"`/`"silver"` (case-sensitive); anything else is
-treated like bronze.
+treated like bronze. The response body carries the percentage under the
+`discount_percentage` key:
 
 ```bash
 curl -X POST http://127.0.0.1:8000/discount \
@@ -395,7 +396,7 @@ curl -X POST http://127.0.0.1:8000/discount \
 Expected response (`200 OK`):
 
 ```json
-{"discount": 15.0}
+{"discount_percentage": 15.0}
 ```
 
 An order below the threshold with a tier that never discounts:
@@ -409,7 +410,7 @@ curl -X POST http://127.0.0.1:8000/discount \
 Expected response (`200 OK`):
 
 ```json
-{"discount": 0.0}
+{"discount_percentage": 0.0}
 ```
 
 ## Test
@@ -428,7 +429,7 @@ database file.
 app/
   __init__.py
   main.py          # FastAPI app + /hello endpoint + task router wiring
-  schemas.py       # Pydantic models for task request/response payloads
+  schemas.py       # Pydantic models for request/response payloads
   storage.py       # SQLite-backed persistence layer
   tasks.py         # Task CRUD API routes
 tests/
