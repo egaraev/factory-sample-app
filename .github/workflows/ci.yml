@@ -64,20 +64,15 @@ jobs:
           repository: egaraev/factory-manifests
           token: ${{ secrets.MANIFESTS_WRITE_PAT }}
           path: manifests
+          ref: main
+          fetch-depth: 0
 
-      # KAN-81: rewrite only the sample-app "image:" line, preserving its
-      # indentation and every other byte of the manifest. The match requires a
-      # non-space run (any tag) between "factory-sample-app" and end-of-line,
-      # so running this twice — or when the line already holds this exact sha
-      # — leaves the file byte-for-byte identical.
       - name: Pin sample-app image to this build's SHA
         run: |
           set -euo pipefail
           manifest="manifests/k8s/sample-app/deployment.yaml"
           sed -i -E "s|^([[:space:]]*image:[[:space:]]*)([^[:space:]]*factory-sample-app[^[:space:]]*)[[:space:]]*$|\1ghcr.io/egaraev/factory-sample-app:${{ github.sha }}|" "$manifest"
 
-      # Only commit/push when the previous step actually changed the file, so
-      # an already-pinned manifest is a safe no-op (no empty commits).
       - name: Commit and push manifest update
         run: |
           set -euo pipefail
@@ -89,5 +84,5 @@ jobs:
             git commit -m "deploy: factory-sample-app@${{ github.sha }}"
             git push origin HEAD:main
           else
-            echo "k8s/sample-app/deployment.yaml already pinned to ${{ github.sha }} — nothing to do."
+            echo "k8s/sample-app/deployment.yaml already pinned to ${{ github.sha }}; nothing to do."
           fi
