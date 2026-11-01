@@ -76,8 +76,9 @@ jobs:
           manifest="manifests/k8s/sample-app/deployment.yaml"
           sed -i -E "s|^([[:space:]]*image:[[:space:]]*)([^[:space:]]*factory-sample-app[^[:space:]]*)[[:space:]]*$|\1ghcr.io/egaraev/factory-sample-app:${{ github.sha }}|" "$manifest"
 
-      # Only commit/push when the previous step actually changed the file, so
-      # an already-pinned manifest is a safe no-op (no empty commits).
+      # KAN-82: commit and push only when the pin step actually changed the
+      # file, so an already-pinned manifest is a safe no-op (no empty commits,
+      # no pushes). The git status check is scoped to the single manifest file.
       - name: Commit and push manifest update
         run: |
           set -euo pipefail
