@@ -55,10 +55,7 @@ class DiscountRequest(BaseModel):
 class DiscountResponse(BaseModel):
     """Discount percentage returned by the discount endpoint.
 
-    The field name and the on-the-wire key are the same string,
-    ``discount_percentage`` — there is deliberately no alias on this model, so
-    FastAPI's response body is ``{"discount_percentage": ...}`` (matching the
-    endpoint contract and README).
+    The on-the-wire key is ``discount`` (e.g. ``{"discount": 15.0}``).
     """
 
-    discount_percentage: float = Field(...)
+    discount: float = Field(...)

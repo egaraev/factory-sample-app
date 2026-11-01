@@ -4,12 +4,6 @@
 how :mod:`app.storage` stays independent of FastAPI), so the tier/total rules
 can be unit-tested and reused without any HTTP layer. The router below wires
 that same function into the API as ``POST /discount``.
-
-The endpoint returns the computed percentage under both the ``discount`` key
-(the primary wire key) and the ``discount_percentage`` key (the name defined by
-:class:`~app.schemas.DiscountResponse`, kept in the body for documentation and
-client compatibility), producing ``{"discount": ..., "discount_percentage":
-...}``.
 """
 
 from __future__ import annotations
@@ -47,28 +41,16 @@ def calculate_discount(order_total: float, customer_tier: str) -> float:
     return 0.0
 
 
-@router.post("/discount")
-def get_discount(payload: DiscountRequest):
-    """Return the discount percentage for an order total and customer tier.
-
-    The response is a plain object (not serialized through
-    :class:`~app.schemas.DiscountResponse`) so that, in addition to the
-    ``discount_percentage`` name defined by that schema, the body also carries
-    the primary ``discount`` key expected by API consumers:
-    ``{"discount": ..., "discount_percentage": ...}``.
-    """
+@router.post("/discount", response_model=DiscountResponse)
+def get_discount(payload: DiscountRequest) -> DiscountResponse:
+    """Return the discount percentage for an order total and customer tier."""
     try:
-        discount_percentage = calculate_discount(
+        discount = calculate_discount(
             payload.order_total, payload.customer_tier
         )
     except ValueError as exc:
-        # The request schema already rejects non-positive totals with 422;
-        # this keeps calculate_discount's documented contract intact for any
-        # other path by translating the error into an HTTP response.
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
         ) from exc
-    return {
-        "discount": discount_percentage,
-        "discount_percentage": discount_percentage,
-    }
+
+    return DiscountResponse(discount=discount)

@@ -384,7 +384,7 @@ persistence. The rules (the 100 boundary is inclusive):
 `order_total` must be a positive number: zero, negative, non-numeric values, or
 a missing field are rejected with `422 Unprocessable Entity`. Tier matching is
 an exact match on `"gold"`/`"silver"` (case-sensitive); anything else is
-treated like bronze. The response body carries the percentage under the
+treated like bronze. The response body carries the percentage in the
 `discount_percentage` key:
 
 ```bash
