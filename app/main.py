@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app import storage
+from app.discount import router as discount_router
 from app.tasks import router as task_router
 
 
@@ -28,3 +29,4 @@ def hello():
 
 
 app.include_router(task_router)
+app.include_router(discount_router)

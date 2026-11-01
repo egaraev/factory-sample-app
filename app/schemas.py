@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class TaskCreate(BaseModel):
@@ -37,3 +37,22 @@ class Task(BaseModel):
     id: int
     title: str
     done: bool
+
+
+class DiscountRequest(BaseModel):
+    """Payload for the discount endpoint.
+
+    ``order_total`` must be a positive number — zero, negative, or non-numeric
+    input is rejected with ``422`` before any calculation happens.
+    ``customer_tier`` is a plain string: anything other than exactly
+    ``"gold"``/``"silver"`` simply earns no discount (treated as bronze).
+    """
+
+    order_total: float = Field(..., gt=0)
+    customer_tier: str
+
+
+class DiscountResponse(BaseModel):
+    """Discount percentage returned by the discount endpoint."""
+
+    discount: float
