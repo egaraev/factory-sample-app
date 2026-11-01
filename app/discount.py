@@ -5,18 +5,18 @@ how :mod:`app.storage` stays independent of FastAPI), so the tier/total rules
 can be unit-tested and reused without any HTTP layer. The router below wires
 that same function into the API as ``POST /discount``.
 
-The endpoint body carries the computed percentage under the ``"discount"`` key
-(that is the on-the-wire contract the endpoint tests lock in). It therefore
-returns a plain dict rather than serializing through :class:`DiscountResponse`,
-whose canonical field — and thus its ``model_dump()`` key — is
-``discount_percentage`` (see :mod:`app.schemas`).
+The endpoint returns the computed percentage under both the ``discount`` key
+(the primary wire key) and the ``discount_percentage`` key (the name defined by
+:class:`~app.schemas.DiscountResponse`, kept in the body for documentation and
+client compatibility), producing ``{"discount": ..., "discount_percentage":
+...}``.
 """
 
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, status
 
-from app.schemas import DiscountRequest
+from app.schemas import DiscountRequest, DiscountResponse
 
 router = APIRouter(tags=["discount"])
 
@@ -49,7 +49,14 @@ def calculate_discount(order_total: float, customer_tier: str) -> float:
 
 @router.post("/discount")
 def get_discount(payload: DiscountRequest):
-    """Return the discount percentage for an order total and customer tier."""
+    """Return the discount percentage for an order total and customer tier.
+
+    The response is a plain object (not serialized through
+    :class:`~app.schemas.DiscountResponse`) so that, in addition to the
+    ``discount_percentage`` name defined by that schema, the body also carries
+    the primary ``discount`` key expected by API consumers:
+    ``{"discount": ..., "discount_percentage": ...}``.
+    """
     try:
         discount_percentage = calculate_discount(
             payload.order_total, payload.customer_tier
@@ -61,7 +68,7 @@ def get_discount(payload: DiscountRequest):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
         ) from exc
-    # The wire key is "discount" (see module docstring); a plain dict is
-    # returned rather than DiscountResponse so that exact key reaches the
-    # client.
-    return {"discount": discount_percentage}
+    return {
+        "discount": discount_percentage,
+        "discount_percentage": discount_percentage,
+    }
