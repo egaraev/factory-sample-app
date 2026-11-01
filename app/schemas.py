@@ -24,7 +24,7 @@ class TaskUpdate(BaseModel):
 class TaskComplete(BaseModel):
     """Payload for marking a task complete or incomplete.
 
-    Unlike :class:`TaskUpdate`, the ``done`` flag is required so the completion
+    Unlike :class:`TaskUpdate`, the ``done` flag is required so the completion
     endpoint cannot accept an empty body.
     """
 
@@ -42,8 +42,8 @@ class Task(BaseModel):
 class DiscountRequest(BaseModel):
     """Payload for the discount endpoint.
 
-    ``order_total`` must be a positive number — zero, negative, or non-numeric
-    input is rejected with ``422`` before any calculation happens.
+    ``order_total`` must be a positive number (``gt=0``) — zero, negative, or
+    non-numeric input is rejected with ``422`` before any calculation happens.
     ``customer_tier`` is a plain string: anything other than exactly
     ``"gold"``/``"silver"`` simply earns no discount (treated as bronze).
     """
@@ -55,12 +55,30 @@ class DiscountRequest(BaseModel):
 class DiscountResponse(BaseModel):
     """Discount percentage returned by the discount endpoint.
 
-    The Pydantic field is named ``discount_percentage`` (KAN-88), but it is
-    serialized on the wire as ``"discount"`` via its alias — so a plain
-    :meth:`model_dump` reports the field name, while JSON serialization (which
-    uses aliases by default) emits the shorter ``"discount"`` key. This keeps
-    the endpoint contract stable: both this schema and the endpoint tests/README
-    agree the response body is ``{"discount": ...}``.
+    The field is named ``discount_percentage`` and the model is constructed
+    with that name (as required by KAN-88); on the wire it is serialized as
+    the shorter ``"discount"`` key via ``serialization_alias`` so FastAPI's
+    response body stays ``{"discount": ...}`` (matching the endpoint contract
+    and README). The alias is serialization-only, unlike a plain ``alias=``:
+    validation still accepts the field name, so constructing the model with
+    ``discount_percentage=...`` keeps working.
+
+    Note that Pydantic's no-argument dumps default to field names (in both
+    modes) and only pick up the alias when told to; :meth:`model_dump_json`
+    below defaults to aliasing because the JSON view is meant to mirror what
+    FastAPI actually sends on the wire. ``model_dump`` stays Pydantic-default
+    (field names), matching how other schemas in this module serialize.
     """
 
-    discount_percentage: float = Field(..., alias="discount")
+    discount_percentage: float = Field(..., serialization_alias="discount")
+
+    def model_dump_json(self, **kwargs) -> str:  # type: ignore[override]
+        """Serialize to JSON using the wire alias by default.
+
+        FastAPI serializes response models with ``by_alias=True``; this keeps
+        the plain :meth:`model_dump_json` view (used by tests and tooling) in
+        lockstep with what actually goes on the wire, while leaving callers
+        free to opt back out with ``by_alias=False``.
+        """
+        kwargs.setdefault("by_alias", True)
+        return super().model_dump_json(**kwargs)  # type: ignore[misc]
