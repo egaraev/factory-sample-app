@@ -63,7 +63,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Scan image for CRITICAL/HIGH vulnerabilities
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1  # v0.35.0 -- pinned to the commit sha, not a mutable tag: trivy-action had 76 of its 77 tags force-pushed to a malicious commit in a March 2026 supply-chain compromise (GHSA-69fq-xp46-6x23)
         with:
           image-ref: ghcr.io/${{ github.repository }}:${{ github.sha }}
           severity: CRITICAL,HIGH
