@@ -55,10 +55,12 @@ class DiscountRequest(BaseModel):
 class DiscountResponse(BaseModel):
     """Discount percentage returned by the discount endpoint.
 
-    The field is named ``discount_percentage`` internally (see KAN-88), but is
-    serialized as ``"discount"`` in API responses via ``serialization_alias``,
-    so a default ``model_dump()`` still reports the field name while the JSON
-    body served by FastAPI exposes it under its shorter wire name.
+    The Pydantic field is named ``discount_percentage`` (KAN-88), but it is
+    serialized on the wire as ``"discount"`` via its alias — so a plain
+    :meth:`model_dump` reports the field name, while JSON serialization (which
+    uses aliases by default) emits the shorter ``"discount"`` key. This keeps
+    the endpoint contract stable: both this schema and the endpoint tests/README
+    agree the response body is ``{"discount": ...}``.
     """
 
-    discount_percentage: float = Field(..., serialization_alias="discount")
+    discount_percentage: float = Field(..., alias="discount")

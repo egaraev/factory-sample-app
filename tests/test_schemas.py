@@ -121,3 +121,25 @@ def test_discount_response_serializes_discount_percentage_field_only():
         dumped = response.dict()
 
     assert dumped == {"discount_percentage": 15.0}
+
+
+def test_discount_response_wire_name_matches_endpoint_and_docs():
+    """Lock the actual on-the-wire key so schema, endpoint tests, and README agree.
+
+    ``model_dump()`` reports the internal field name (``discount_percentage``)
+    and ignores aliases; FastAPI serializes with the ``serialization_alias``,
+    which is ``"discount"``. Both views are asserted explicitly so a future
+    change to either side fails here instead of surfacing as a doc/endpoint
+    mismatch.
+    """
+    response = DiscountResponse(discount_percentage=15.0)
+
+    if hasattr(response, "model_dump"):  # Pydantic v2
+        by_alias = response.model_dump(by_alias=True)
+        json_body = response.model_dump_json()
+    else:  # Pydantic v1
+        by_alias = response.dict(by_alias=True)
+        json_body = response.json()
+
+    assert by_alias == {"discount": 15.0}
+    assert json_body in ('{"discount": 15.0}', '{"discount":15.0}')
