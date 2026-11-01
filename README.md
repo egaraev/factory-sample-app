@@ -371,6 +371,47 @@ Not-found response (`404 Not Found`):
 {"detail": "Task not found"}
 ```
 
+## Discount API
+
+`POST /discount` takes an order total and a customer tier and returns the
+discount percentage to apply to the order — a stateless calculation with no
+persistence. The rules (the 100 boundary is inclusive):
+
+- **gold**: 15% if `order_total >= 100`, else 5%
+- **silver**: 10% if `order_total >= 100`, else 0%
+- **bronze** (and any other unrecognized tier): 0% regardless of the total
+
+`order_total` must be a positive number: zero, negative, non-numeric values, or
+a missing field are rejected with `422 Unprocessable Entity`. Tier matching is
+an exact match on `"gold"`/`"silver"` (case-sensitive); anything else is
+treated like bronze.
+
+```bash
+curl -X POST http://127.0.0.1:8000/discount \
+  -H "Content-Type: application/json" \
+  -d '{"order_total": 150, "customer_tier": "gold"}'
+```
+
+Expected response (`200 OK`):
+
+```json
+{"discount": 15.0}
+```
+
+An order below the threshold with a tier that never discounts:
+
+```bash
+curl -X POST http://127.0.0.1:8000/discount \
+  -H "Content-Type: application/json" \
+  -d '{"order_total": 50, "customer_tier": "bronze"}'
+```
+
+Expected response (`200 OK`):
+
+```json
+{"discount": 0.0}
+```
+
 ## Test
 
 ```bash
