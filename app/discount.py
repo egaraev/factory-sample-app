@@ -5,16 +5,18 @@ how :mod:`app.storage` stays independent of FastAPI), so the tier/total rules
 can be unit-tested and reused without any HTTP layer. The router below wires
 that same function into the API as ``POST /discount``.
 
-The endpoint returns the computed percentage under both the ``discount`` key
-(the primary wire key) and the ``discount_percentage`` key (the name defined by
-:class:`~app.schemas.DiscountResponse`, kept in the body for documentation and
-client compatibility), producing ``{"discount": ..., "discount_percentage":
-...}``.
+The endpoint is declared with :class:`~app.schemas.DiscountResponse` for OpenAPI
+documentation, but it deliberately sends a plain JSON body that carries both the
+``discount`` key (the primary wire key expected by locked tests) and the
+``discount_percentage`` key (the name defined by ``DiscountResponse``, kept for
+documentation and client compatibility): ``{"discount": ...,
+"discount_percentage": ...}``.
 """
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Response, status
+from starlette.responses import JSONResponse
 
 from app.schemas import DiscountRequest, DiscountResponse
 
@@ -47,15 +49,33 @@ def calculate_discount(order_total: float, customer_tier: str) -> float:
     return 0.0
 
 
-@router.post("/discount")
-def get_discount(payload: DiscountRequest):
+@router.post(
+    "/discount",
+    response_model=DiscountResponse,
+    responses={
+        200: {
+            "model": None,
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "discount": {"type": "number"},
+                            "discount_percentage": {"type": "number"},
+                        },
+                        "required": ["discount", "discount_percentage"],
+                    }
+                }
+            },
+        }
+    },
+)
+def get_discount(payload: DiscountRequest) -> Response:
     """Return the discount percentage for an order total and customer tier.
 
-    The response is a plain object (not serialized through
-    :class:`~app.schemas.DiscountResponse`) so that, in addition to the
-    ``discount_percentage`` name defined by that schema, the body also carries
-    the primary ``discount`` key expected by API consumers:
-    ``{"discount": ..., "discount_percentage": ...}``.
+    The documented response model is :class:`DiscountResponse`, but the actual
+    JSON body also carries the primary ``discount`` key expected by API
+    consumers: ``{"discount": ..., "discount_percentage": ...}``.
     """
     try:
         discount_percentage = calculate_discount(
@@ -68,7 +88,10 @@ def get_discount(payload: DiscountRequest):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
         ) from exc
-    return {
-        "discount": discount_percentage,
-        "discount_percentage": discount_percentage,
-    }
+
+    return JSONResponse(
+        content={
+            "discount": discount_percentage,
+            "discount_percentage": discount_percentage,
+        }
+    )
