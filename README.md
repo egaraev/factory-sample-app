@@ -375,7 +375,9 @@ Not-found response (`404 Not Found`):
 
 `POST /discount` takes an order total and a customer tier and returns the
 discount percentage to apply to the order — a stateless calculation with no
-persistence. The rules (the 100 boundary is inclusive):
+persistence. The request body carries two fields, `order_total` (a positive
+number) and `customer_tier` (a string). The discount rules (the 100 boundary is
+inclusive):
 
 - **gold**: 15% if `order_total >= 100`, else 5%
 - **silver**: 10% if `order_total >= 100`, else 0%
@@ -385,7 +387,7 @@ persistence. The rules (the 100 boundary is inclusive):
 a missing field are rejected with `422 Unprocessable Entity`. Tier matching is
 an exact match on `"gold"`/`"silver"` (case-sensitive); anything else is
 treated like bronze. The response body carries the percentage in the
-`discount_percentage` key:
+`discount` key:
 
 ```bash
 curl -X POST http://127.0.0.1:8000/discount \
@@ -396,7 +398,7 @@ curl -X POST http://127.0.0.1:8000/discount \
 Expected response (`200 OK`):
 
 ```json
-{"discount_percentage": 15.0}
+{"discount": 15.0}
 ```
 
 An order below the threshold with a tier that never discounts:
@@ -410,7 +412,7 @@ curl -X POST http://127.0.0.1:8000/discount \
 Expected response (`200 OK`):
 
 ```json
-{"discount_percentage": 0.0}
+{"discount": 0.0}
 ```
 
 ## Test
