@@ -133,6 +133,36 @@ docker pull ghcr.io/egaraev/factory-sample-app:<git-commit-sha>
 docker run -p 8000:8000 ghcr.io/egaraev/factory-sample-app:<git-commit-sha>
 ```
 
+## Deployment (CI)
+
+Pushing to `main` deploys the service end-to-end on its own — no manual
+`kubectl rollout restart` is needed anymore. A single push to `main` drives a
+three-job pipeline defined in [`.github/workflows/ci.yml`](.github/workflows/ci.yml):
+
+1. **test** — installs the dev dependencies and runs `pytest`.
+2. **build-and-push** — builds the Docker image and pushes it to GHCR under
+   two tags: `ghcr.io/egaraev/factory-sample-app:latest` and
+   `ghcr.io/egaraev/factory-sample-app:<git-commit-sha>` (replace `egaraev`
+   with the owning account or organization where applicable).
+3. **deploy** — checks out the separate
+   [`egaraev/factory-manifests`](https://github.com/egaraev/factory-manifests)
+   repository (authenticating with the `MANIFESTS_WRITE_PAT` repo secret),
+   rewrites the `image:` line in `k8s/sample-app/deployment.yaml` to pin this
+   build's commit SHA, then commits (`deploy: factory-sample-app@<sha>`) and
+   pushes straight to `main` on that repo. If the manifest already points at
+   this SHA, the job is a safe no-op.
+
+The old failure mode was that the manifest referenced `latest`, so a fresh push
+never rolled the running pod until someone noticed and restarted it by hand. By
+pinning an immutable `<sha>` tag instead, every build produces a real change to
+`factory-manifests`; ArgoCD — configured for automatic sync with self-heal on
+that repo — picks up the new commit and rolls the updated pod into the cluster
+on its own.
+
+Put together, the flow is **build → tag → auto-pin in `factory-manifests` →
+ArgoCD sync**. Only pushes to `main` run `build-and-push` and `deploy`; pull
+requests and other branches run just the `test` job.
+
 ## Verify manually
 
 With the server running, request the greeting endpoint in a second terminal:
