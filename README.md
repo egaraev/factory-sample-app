@@ -375,7 +375,9 @@ Not-found response (`404 Not Found`):
 
 `POST /discount` takes an order total and a customer tier and returns the
 discount percentage to apply to the order — a stateless calculation with no
-persistence. The rules (the 100 boundary is inclusive):
+persistence. The request body carries two fields, `order_total` (a positive
+number) and `customer_tier` (a string). The discount rules (the 100 boundary is
+inclusive):
 
 - **gold**: 15% if `order_total >= 100`, else 5%
 - **silver**: 10% if `order_total >= 100`, else 0%
@@ -413,6 +415,37 @@ Expected response (`200 OK`):
 {"discount": 0.0}
 ```
 
+An invalid `order_total` is rejected by request validation before any
+calculation happens. For example, sending zero:
+
+```bash
+curl -X POST http://127.0.0.1:8000/discount \
+  -H "Content-Type: application/json" \
+  -d '{"order_total": 0, "customer_tier": "gold"}'
+```
+
+Expected response (`422 Unprocessable Entity`); FastAPI returns pydantic's
+validation error for the offending field (the `url` version suffix varies with
+the installed pydantic release):
+
+```json
+{
+  "detail": [
+    {
+      "type": "greater_than",
+      "loc": ["body", "order_total"],
+      "msg": "Input should be greater than 0",
+      "input": 0,
+      "ctx": {"gt": 0},
+      "url": "https://errors.pydantic.dev/2.x/v/greater_than"
+    }
+  ]
+}
+```
+
+Negative or non-numeric `order_total` values — and a request missing the field
+entirely — are rejected the same way.
+
 ## Test
 
 ```bash
@@ -428,15 +461,17 @@ database file.
 ```
 app/
   __init__.py
-  main.py          # FastAPI app + /hello endpoint + task router wiring
+  main.py          # FastAPI app + /hello endpoint + task/discount router wiring
   schemas.py       # Pydantic models for request/response payloads
   storage.py       # SQLite-backed persistence layer
   tasks.py         # Task CRUD API routes
+  discount.py      # calculate_discount + POST /discount router
 tests/
   test_hello.py    # endpoint test
   test_schemas.py  # schema tests
   test_storage.py  # persistence layer tests
   test_tasks.py    # task endpoint tests
+  test_discount.py # calculate_discount + endpoint tests
 requirements.txt
 requirements-dev.txt
 Dockerfile
