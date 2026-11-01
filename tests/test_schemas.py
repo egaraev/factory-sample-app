@@ -106,32 +106,26 @@ def test_discount_request_accepts_any_string_customer_tier(customer_tier):
     assert request.customer_tier == customer_tier
 
 
-def test_discount_response_requires_both_percentage_fields():
+def test_discount_response_requires_discount():
     with pytest.raises(ValueError):
         DiscountResponse()  # type: ignore[call-arg]
 
 
-def test_discount_response_serializes_both_discount_keys():
-    response = DiscountResponse(discount=15.0, discount_percentage=15.0)
+def test_discount_response_serializes_discount():
+    response = DiscountResponse(discount=15.0)
 
     assert response.discount == 15.0
-    assert response.discount_percentage == 15.0
     if hasattr(response, "model_dump"):  # Pydantic v2
         dumped = response.model_dump()
     else:  # Pydantic v1
         dumped = response.dict()
 
-    assert dumped == {"discount": 15.0, "discount_percentage": 15.0}
+    assert dumped == {"discount": 15.0}
 
 
-def test_discount_response_wire_name_matches_endpoint_and_docs():
-    """Lock the actual on-the-wire keys so schema and endpoint behavior agree.
-
-    The endpoint contract intentionally exposes both ``discount`` and
-    ``discount_percentage`` with the same value, and this test pins that wire
-    format explicitly.
-    """
-    response = DiscountResponse(discount=15.0, discount_percentage=15.0)
+def test_discount_response_wire_name_matches_endpoint_contract():
+    """Lock the on-the-wire key so schema and endpoint behavior agree."""
+    response = DiscountResponse(discount=10.0)
 
     if hasattr(response, "model_dump"):  # Pydantic v2
         by_alias = response.model_dump(by_alias=True)
@@ -140,8 +134,5 @@ def test_discount_response_wire_name_matches_endpoint_and_docs():
         by_alias = response.dict(by_alias=True)
         json_body = response.json()
 
-    assert by_alias == {"discount": 15.0, "discount_percentage": 15.0}
-    assert json_body in (
-        '{"discount": 15.0, "discount_percentage": 15.0}',
-        '{"discount":15.0,"discount_percentage":15.0}',
-    )
+    assert by_alias == {"discount": 10.0}
+    assert json_body in ('{"discount": 10.0}', '{"discount":10.0}')

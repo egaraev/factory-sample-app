@@ -45,7 +45,7 @@ def calculate_discount(order_total: float, customer_tier: str) -> float:
 def get_discount(payload: DiscountRequest) -> DiscountResponse:
     """Return the discount percentage for an order total and customer tier."""
     try:
-        discount_percentage = calculate_discount(
+        discount = calculate_discount(
             payload.order_total, payload.customer_tier
         )
     except ValueError as exc:
@@ -53,7 +53,4 @@ def get_discount(payload: DiscountRequest) -> DiscountResponse:
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
         ) from exc
 
-    return DiscountResponse(
-        discount=discount_percentage,
-        discount_percentage=discount_percentage,
-    )
+    return DiscountResponse(discount=discount)

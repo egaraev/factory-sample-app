@@ -384,8 +384,8 @@ persistence. The rules (the 100 boundary is inclusive):
 `order_total` must be a positive number: zero, negative, non-numeric values, or
 a missing field are rejected with `422 Unprocessable Entity`. Tier matching is
 an exact match on `"gold"`/`"silver"` (case-sensitive); anything else is
-treated like bronze. The response body carries the percentage in both the
-`discount` and `discount_percentage` keys:
+treated like bronze. The response body carries the percentage in the
+`discount_percentage` key:
 
 ```bash
 curl -X POST http://127.0.0.1:8000/discount \
@@ -396,7 +396,7 @@ curl -X POST http://127.0.0.1:8000/discount \
 Expected response (`200 OK`):
 
 ```json
-{"discount": 15.0, "discount_percentage": 15.0}
+{"discount_percentage": 15.0}
 ```
 
 An order below the threshold with a tier that never discounts:
@@ -410,7 +410,7 @@ curl -X POST http://127.0.0.1:8000/discount \
 Expected response (`200 OK`):
 
 ```json
-{"discount": 0.0, "discount_percentage": 0.0}
+{"discount_percentage": 0.0}
 ```
 
 ## Test

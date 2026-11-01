@@ -55,10 +55,7 @@ class DiscountRequest(BaseModel):
 class DiscountResponse(BaseModel):
     """Discount percentage returned by the discount endpoint.
 
-    The response carries the calculated percentage in two equivalent fields so
-    existing consumers can keep using ``discount`` while new clients use the
-    more explicit ``discount_percentage`` name.
+    The on-the-wire key is ``discount`` (e.g. ``{"discount": 15.0}``).
     """
 
     discount: float = Field(...)
-    discount_percentage: float = Field(...)
