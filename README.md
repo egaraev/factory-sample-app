@@ -1,8 +1,6 @@
 # factory-sample-app
 
-Minimal FastAPI service with a `/hello` endpoint and a small SQLite-backed task
-list API. This is a proof-of-pipeline scaffold; frontend, and additional
-endpoints are deferred to follow-up epics.
+Minimal FastAPI service with a `/hello` endpoint, a small SQLite-backed task list API, and a discount calculator. This app exists as a working example: every line of its application code, tests, and this README's API documentation was written by [`ai-software-factory`](https://github.com/egaraev/ai-software-factory)'s agent pipeline from Jira tickets, not by hand.
 
 ## Prerequisites
 
@@ -133,35 +131,31 @@ docker pull ghcr.io/egaraev/factory-sample-app:<git-commit-sha>
 docker run -p 8000:8000 ghcr.io/egaraev/factory-sample-app:<git-commit-sha>
 ```
 
-## Deployment (CI)
+## Deployment (CI/CD)
 
-Pushing to `main` deploys the service end-to-end on its own — no manual
-`kubectl rollout restart` is needed anymore. A single push to `main` drives a
-three-job pipeline defined in [`.github/workflows/ci.yml`](.github/workflows/ci.yml):
+A push to `main` carries a build all the way to production on its own — no manual `kubectl rollout restart`, and no build ever reaches production without first proving itself healthy in staging:
+
+```mermaid
+flowchart TD
+    A["push to main"] --> B["test — pytest"]
+    B --> C["build-and-push — image tagged :latest and :&lt;sha&gt;"]
+    C --> D["security-scan — Trivy, blocks on<br/>CRITICAL/HIGH CVEs with a fix available"]
+    D --> E["deploy-staging — pins &lt;sha&gt; into<br/>factory-manifests' staging Deployment"]
+    E --> F["ArgoCD syncs staging"]
+    F --> G["promote-staging CronJob<br/>(in factory-manifests)<br/>health-checks staging directly"]
+    G -->|healthy| H["pins &lt;sha&gt; into<br/>factory-manifests' production Deployment"]
+    H --> I["ArgoCD syncs production"]
+```
 
 1. **test** — installs the dev dependencies and runs `pytest`.
 2. **build-and-push** — builds the Docker image and pushes it to GHCR under
    two tags: `ghcr.io/egaraev/factory-sample-app:latest` and
-   `ghcr.io/egaraev/factory-sample-app:<git-commit-sha>` (replace `egaraev`
-   with the owning account or organization where applicable).
-3. **deploy** — checks out the separate
-   [`egaraev/factory-manifests`](https://github.com/egaraev/factory-manifests)
-   repository (authenticating with the `MANIFESTS_WRITE_PAT` repo secret),
-   rewrites the `image:` line in `k8s/sample-app/deployment.yaml` to pin this
-   build's commit SHA, then commits (`deploy: factory-sample-app@<sha>`) and
-   pushes straight to `main` on that repo. If the manifest already points at
-   this SHA, the job is a safe no-op.
+   `ghcr.io/egaraev/factory-sample-app:<git-commit-sha>`.
+3. **security-scan** — scans the exact `<sha>`-tagged image with Trivy and fails the build on any CRITICAL or HIGH severity CVE that has a fix available.
+4. **deploy-staging** — checks out [`egaraev/factory-manifests`](https://github.com/egaraev/factory-manifests) and pins the staging Deployment's `image:` line to this build's `<sha>`. ArgoCD (automated sync + self-heal on that repo) rolls staging to the new build on its own.
+5. **promotion** — a separate CronJob in `factory-manifests` (`promote_staging.py`, not part of this repo's CI) polls staging against production, confirms staging's own health endpoint answers, and only then pins production's Deployment to the same `<sha>`. ArgoCD syncs production the same way it synced staging.
 
-The old failure mode was that the manifest referenced `latest`, so a fresh push
-never rolled the running pod until someone noticed and restarted it by hand. By
-pinning an immutable `<sha>` tag instead, every build produces a real change to
-`factory-manifests`; ArgoCD — configured for automatic sync with self-heal on
-that repo — picks up the new commit and rolls the updated pod into the cluster
-on its own.
-
-Put together, the flow is **build → tag → auto-pin in `factory-manifests` →
-ArgoCD sync**. Only pushes to `main` run `build-and-push` and `deploy`; pull
-requests and other branches run just the `test` job.
+This repository's CI never touches production directly — pinning an immutable `<sha>` tag at each stage, instead of ever deploying `:latest`, is what makes every step of this chain a real, observable git commit rather than an in-place mutation.
 
 ## Verify manually
 
